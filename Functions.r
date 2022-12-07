@@ -67,8 +67,8 @@ return(cellchat)
 #' @return Seurat object
 cluster_pca_umap <- function(obj,assay=NULL, reduction,cluster_res = 0.3){
   #obj2 <- RunPCA(obj, assay = "SCT", reduction = "harmony",verbose = F)
-  obj2 <- RunTSNE(object = obj,assay = assay, reduction = reduction, dims = 1:50)
-  obj2 <- RunUMAP(object = obj2, assay =assay, reduction = reduction, dims = 1:50)
+  obj2 <- RunTSNE(object = obj,assay = assay, reduction = reduction, dims = 1:50,check_duplicates = FALSE)
+  obj2 <- RunUMAP(object = obj2, assay =assay, reduction = reduction, dims = 1:50,check_duplicates = FALSE)
   obj2 <- FindNeighbors(object=obj2, assay = assay, reduction = reduction, dims = 1:50)
   obj2 <- FindClusters(object=obj2, resolution = cluster_res)
   return(obj2)
@@ -143,8 +143,8 @@ StackedVlnPlot<- function(obj, features,
 #' @return List of data tables, one for each numeric cluster
 parallelFindAllMarkers <- function(obj){
 
-  all_markers <- future_lapply(levels(Idents(obj)), function(x){ # Five expression patterns
-    FindMarkers(obj, ident.1 = x, ident.2 = NULL, test.use = "MAST")
+  all_markers <- lapply(levels(Idents(obj)), function(x){ # Five expression patterns
+    FindMarkers(obj, ident.1 = x, ident.2 = NULL, test.use = "wilcox")
   })
 
   return(value(all_markers))
@@ -309,23 +309,20 @@ stack_plot<-function(obj,options,colors,coord=T,angle=T,label.size=4){
     ggplot_df<-obj@meta.data[,options]
     colnames(ggplot_df)<-c("index1","index2")
 
-    a<-tapply(ggplot_df$index1,factor(ggplot_df$index2),function(index2){table(index2) })
+a<-tapply(ggplot_df$index1,factor(ggplot_df$index2),function(index2){table(index2) })
+dfll <- do.call(rbind,lapply(a, data.frame))
+dfll$index1 <- rep(names(a),sapply(a,length))
+# Calculate the percentages
+dfll = plyr::ddply(dfll, .(index1), transform, percent = Freq/sum(Freq) * 100)
 
-    dfll <- do.call(rbind,lapply(a, data.frame))
-    dfll$index1 <- rep(names(a),sapply(a,length))
-    # Calculate the percentages
-    dfll = ddply(dfll, .(index1), transform, percent = Freq/sum(Freq) * 100)
-
-    # Format the labels and calculate their positions
-    dfll = ddply(dfll, .(index1), transform, pos = rev(cumsum(Freq) - 0.5 * Freq))
-   #dfll$pos <- dfll$pos[c(rev(which(dfll$index1=="CC1")),rev(which(dfll$index1=="CC2")))]
-
-    dfll$label = paste0(sprintf("%.0f", dfll$percent), "%")
-
-    p<-ggplot(dfll, aes(x =index1, y = Freq, fill =index2)) +
-        geom_bar(stat = "identity",  color="grey",size=0.3) +
-        geom_text(aes(y = pos, label = label), size = label.size)+
-        theme_classic()+
+# Format the labels and calculate their positions
+dfll = plyr::ddply(dfll, .(index1), transform, pos = cumsum(percent)/100)
+dfll$label = paste0(sprintf("%.0f", dfll$percent), "%")
+dfll$index2<-factor(dfll$index2,levels = rev(unique(as.vector(dfll$index2))))
+p<-ggplot(dfll, aes(x =index1, y = percent, fill =index2)) +
+  geom_bar(stat = "identity", position= 'fill',size=0.3) +
+  geom_text(aes(y = pos, label = label), size = label.size)+
+  theme_classic()+
         scale_fill_manual(values=colors)+
         #
         labs(x = options[1], title = options[2])

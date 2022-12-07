@@ -17,6 +17,8 @@ setwd("/share/pub/dengcy/Singlecell/CC_space/1.scRNA_seq_prepare")
 file_pre="/share/pub/dengcy/Singlecell/CC_space/gcy_analysis/Analysis/1.Basic_analysis/1.2.filtered_feature_bc_matrix"
 output_pre="/share/pub/dengcy/Singlecell/CC_space/1.scRNA_seq_prepare/"
 
+#tar czvf CRC_scrnaseq.tar.gz /share/pub/dengcy/Singlecell/CC_space/gcy_analysis/Analysis/1.Basic_analysis/1.2.filtered_feature_bc_matrix
+
 if(F){
 ## human or mouse: cc_genes_hg.txt or cc_genes_hg.txt
 cell_cycle_genes <- read.table(file = "/share/pub/xiongyc/project/scRNA/JiangFanChen/data/cc_genes_hg.txt",header = TRUE);
@@ -181,6 +183,7 @@ write.csv(Allmarkers,file="17cluster_Allmarkers.csv")
 library("celldex")
 library("SingleR")
 library("pracma")
+library(SingleCellExperiment)
 ref <- HumanPrimaryCellAtlasData() 
 #############er
 common <- intersect(rownames(ref), rownames(CC_scrna))
@@ -246,3 +249,11 @@ pdf(file=paste(output_pre,"cluster_annotation_umap.pdf",sep=""),height=8,width=8
 print(plots_annotation)
 dev.off()
 
+##################输出结果
+setwd("/share/pub/dengcy/Singlecell/CC_space/1.scRNA_seq_prepare")
+load("CC_scrna.RData")
+data_mat<- GetAssayData(CC_scrna, slot = "counts", assay ="RNA")
+write.table(data_mat,file="SupplementaryData1.txt",quote=F)
+
+meta_mat<- CC_scrna@meta.data
+write.table(meta_mat,file="SupplementaryData2.txt",quote=F)

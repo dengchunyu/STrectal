@@ -21,22 +21,19 @@ for(i in 1:length(files)){
 }
 ###########################
 ############CC1
-###这一步有点慢,半个多小时。
-load("/share/pub/dengcy/Singlecell/CC_space/6.cellcom/scrna_cc1.RData")
+###
+load("/share/pub/dengcy/Singlecell/CC_space/6.cellcom/scrna_stage1.RData")
 #Immune_scrna_cc1<- subset(Immune_scrna,samples == "CC1" )
-Immune_scrna_cc1<-subset(scrna_cc1,annotation != "NK.cell")
+#Immune_scrna_cc1<-subset(scrna_cc1,annotation != "NK.cell")
 
-Immune_scrna1_T <- subset(Immune_scrna_cc1,annotation %in% c("CD4.TCM","Cytotoxic.CD8.T","Terminally.Exhausted CD8T"))
-Immune_scrna1_2 <- subset(Immune_scrna_cc1,annotation %in% c("B.cell","B.cell.activite.memory","Neutrophils","TAM"))
-#,"Terminally.Exhausted CD8T","TAM"))
-
+Immune_scrna1_T <- subset(scrna_stage1,annotation %in% c("Teff","Tex","Th","Treg"))
+Immune_scrna1_M <- subset(scrna_stage1,annotation %in% c("B","Plasma","Neutrophils","TAM"))
+rm(scrna_stage1)
+################################################旧的代码
 spotlight_Immune_magliant<-function(Spatial_data=Spatial_CST1,
   Immune_scrna=Immune_scrna_cc1,
   Immunecells="Cytotoxic.CD8.T",
   tumorcells=c("CT1","CT2")
-  #fillcolor=c("#D3ECA7","#A1B57D","#FC4F4F"),
-  #filenames="spotlight_cd8t_Ct1_FeaturePlot.pdf",
-  #filenames_pie="scatterpie_cd8_ct1_CC1.pdf"
   ){
 
   Immune_scrna1_cell <- subset(Immune_scrna,annotation %in% c(tumorcells,Immunecells))
@@ -64,13 +61,12 @@ spotlight_cc1 <- spotlight_deconvolution(
 Spatial_data<-spotlight_fuc(Spatial_data=Spatial_data,spotlight_immune_cc1=spotlight_cc1)
 return(Spatial_data)
 }
-##################第一次计算
+##################
 
 Spatial_data_cd8t<-spotlight_Immune_magliant(Spatial_data=Spatial_CST1,
   Immune_scrna=Immune_scrna_cc1,
   Immunecells=c("Cytotoxic.CD8.T"),
-  #fillcolor=c("#D3ECA7","#A1B57D","#FC4F4F","#2EB086","#11468F"),
-  tumorcells=c("CT1","CT2"))
+  tumorcells=c("LatePseudotime_TumerCells"))
 save(Spatial_data_cd8t,file="Spatial_data_cd8t.RData")
 
 pdf("scatterpie_cd8_CC1.pdf",width=8)
@@ -138,25 +134,25 @@ dev.off()
 
 ######################################################################################2.20以前
 cc1markers_t <- Seurat::FindAllMarkers(object = Immune_scrna1_T,
-                                              assay = "SCT",
+                                              assay = "RNA",
                                               slot = "data",
                                               verbose = TRUE,
                                               only.pos = TRUE)
 saveRDS(object = cc1markers_t, file = here::here("cc1markers_t.RDS"))
 
-cc1markers_2 <- Seurat::FindAllMarkers(object = Immune_scrna1_2,
-                                              assay = "SCT",
+cc1markers_2 <- Seurat::FindAllMarkers(object = Immune_scrna1_M,
+                                              assay = "RNA",
                                               slot = "data",
                                               verbose = TRUE,
                                               only.pos = TRUE)
-saveRDS(object = cc1markers_2, file = here::here("cc1markers_2.RDS"))
+saveRDS(object = cc1markers_2, file = here::here("cc1markers_M.RDS"))
 
 spotlight_immuneT_cc1 <- spotlight_deconvolution(
   se_sc = Immune_scrna1_T,
   counts_spatial = Spatial_CST1@assays$Spatial@counts,
   clust_vr = "annotation", # Variable in sc_seu containing the cell-type annotation
   cluster_markers = cc1markers_t, # Dataframe with the marker genes
-  cl_n = 100, # number of cells per cell type to use
+  cl_n = 500, # number of cells per cell type to use
   hvg = 6000, # Number of HVG to use
   ntop = NULL, # How many of the marker genes to use (by default all)
   transf = "uv", # Perform unit-variance scaling per cell and spot prior to factorzation and NLS
@@ -168,10 +164,62 @@ saveRDS(object = spotlight_immuneT_cc1, file = here::here("spotlight_immuneT_cc1
 
 Spatial_CST1<-spotlight_fuc(Spatial_data=Spatial_CST1,spotlight_immune_cc1=spotlight_immuneT_cc1)
 
+df<-Spatial_CST1@meta.data
+p1 <- ggplot(df,aes(x =State4 ,
+                y =Treg))+
+          geom_point(size=0.5,color="#8785a2")+
+          geom_smooth(se = F,
+                      color = "#8E0505")+
+          labs(x = "Pseudotime-State4",y="Treg",title="StageI/II  Treg")+
+          theme_classic()+
+          stat_cor(data =df,
+           method = "pearson")
+
+p2 <- ggplot(df,aes(x =State4 ,
+                y =Tex))+
+          geom_point(size=0.5)+
+          geom_smooth(se = F,
+                      color = "#8E0505")+
+          labs(x = "Pseudotime-State4",y="Tex",title="StageI/II  Tex")+
+          theme_classic()+
+          stat_cor(data =df,
+           method = "pearson")
+p3 <- ggplot(df,aes(x =State4 ,
+                y =TAM))+
+          geom_point(size=0.5)+
+          geom_smooth(se = F,
+                      color = "#8E0505")+
+          labs(x = "Pseudotime-State4",y="TAM",title="StageI/II  TAM")+
+          theme_classic()+
+          stat_cor(data =df,
+           method = "pearson")
+          p3.1 <- ggplot(df,aes(x =State5 ,
+                y =TAM))+
+          geom_point(size=0.5)+
+          geom_smooth(se = F,
+                      color = "#8E0505")+
+          labs(x = "Pseudotime-State5",y="TAM",title="StageI/II  TAM")+
+          theme_classic()+
+          stat_cor(data =df,
+           method = "pearson")
+p4 <- ggplot(df,aes(x =State4 ,
+                y =Neutrophils))+
+          geom_point(size=0.5)+
+          geom_smooth(se = F,
+                      color = "#8E0505")+
+          labs(x = "Pseudotime-State5",y="Neutrophils",title="StageI/II  Neutrophils")+
+          theme_classic()+
+          stat_cor(data =df,
+           method = "pearson")
+pdf("Immune_emt_score_stage1.pdf",width=10,height=9)
+ggarrange(p1,p2,p3,p3.1,p4, ncol = 2)
+dev.off()
+
+
 pdf("spotlight_Tcell_CC1_FeaturePlot.pdf",width=7,height=7)
 Seurat::SpatialFeaturePlot(
   object = Spatial_CST1,
-  features = c("Cytotoxic.CD8.T","CD4.TCM" ,"Terminally.Exhausted.CD8T"),
+  features = c("Teff","Tex","Th","Treg"),
   image.alpha=0.8,
    stroke=0.3,
   alpha = c(0.2, 1))
@@ -181,12 +229,12 @@ dev.off()
 ###########B细胞和中性粒细胞
 
 spotlight_immuneB_cc1 <- spotlight_deconvolution(
-  se_sc = Immune_scrna1_2,
+  se_sc = Immune_scrna1_M,
   counts_spatial = Spatial_CST1@assays$Spatial@counts,
   clust_vr = "annotation", # Variable in sc_seu containing the cell-type annotation
   cluster_markers = cc1markers_2, # Dataframe with the marker genes
-  cl_n = 100, # number of cells per cell type to use
-  hvg = 5000, # Number of HVG to use
+  cl_n = 500, # number of cells per cell type to use
+  hvg = 6000, # Number of HVG to use
   ntop = NULL, # How many of the marker genes to use (by default all)
   transf = "uv", # Perform unit-variance scaling per cell and spot prior to factorzation and NLS
   method = "nsNMF", # Factorization method
@@ -200,7 +248,7 @@ Spatial_CST1<-spotlight_fuc(Spatial_data=Spatial_CST1,spotlight_immune_cc1=spotl
 pdf("spotlight_Bcell_CC1_FeaturePlot.pdf",width=9,height=7)
 Seurat::SpatialFeaturePlot(
   object = Spatial_CST1,
-  features = unique(as.vector(Immune_scrna1_2$annotation)),
+  features = unique(as.vector(Immune_scrna1_M$annotation)),
   image.alpha=0.8,
    stroke=0.3,
   alpha = c(0.2, 1))
@@ -209,41 +257,22 @@ dev.off()
 ###############################
 #CC2
 ########################
-Immune_scrna_cc2<- subset(Immune_scrna,samples == "CC2" )
+load("/share/pub/dengcy/Singlecell/CC_space/6.cellcom/scrna_stage2.RData")
+#Immune_scrna_cc2<- subset(Immune_scrna,samples == "CC2" )
 #Immune_scrna_cc1<-subset(Immune_scrna_cc1,annotation != "NK.cell")
-Immune_scrna2_T <- subset(Immune_scrna_cc2,annotation %in% c("NK.cell","CD4.TCM","Cytotoxic.CD8.T","Terminally.Exhausted CD8T"))
-Immune_scrna2_2 <- subset(Immune_scrna_cc2,annotation %in% c("B.cell","B.cell.activite.memory","Neutrophils","TAM"))
-
-load("/share/pub/dengcy/Singlecell/CC_space/6.cellcom/scrna_cc2.RData")
-#Immune_scrna_cc1<- subset(Immune_scrna,samples == "CC1" )
-#Immune_scrna_cc2<-subset(scrna_cc2,annotation != "NK.cell")
-
-Spatial_data_tumor2<-spotlight_Immune_magliant(Spatial_data=Spatial_RST2bei,
-  Immune_scrna=scrna_cc2,
-  Immunecells=NULL,
-  #fillcolor=c("#D3ECA7","#A1B57D","#FC4F4F","#2EB086","#11468F"),
-  tumorcells=c("CT4","CT5","CT6"))
-#save(Spatial_data_cd8t,file="Spatial_data_cd8t.RData")
-
-pdf("scatterpie_tumor_CC2.pdf",width=8)
-scatterpie_plot(se_obj= Spatial_data_tumor2,
-                            cell_types_all=c("CT4","CT5","CT6"),
-                            slice = NULL,
-                            scatterpie_alpha = 1,
-                            cell_types_interest = NULL,
-                            pie_scale = 0.5,colors=NA,fillcolor=color_scanpy_viridis28[c(20,7,11)])
-dev.off()
+Immune_scrna2_T <- subset(scrna_stage2,annotation %in% c("Teff","Tex","Th","Treg"))
+Immune_scrna2_2 <- subset(scrna_stage2,annotation %in% c("B","Plasma","Neutrophils","TAM"))
 
 
 cc2markers_t <- Seurat::FindAllMarkers(object = Immune_scrna2_T,
-                                              assay = "SCT",
+                                              assay = "RNA",
                                               slot = "data",
                                               verbose = TRUE,
                                               only.pos = TRUE)
 saveRDS(object = cc2markers_t, file = here::here("cc2markers_t.RDS"))
 
 cc2markers_B <- Seurat::FindAllMarkers(object = Immune_scrna2_2,
-                                              assay = "SCT",
+                                              assay = "RNA",
                                               slot = "data",
                                               verbose = TRUE,
                                               only.pos = TRUE)
@@ -254,7 +283,7 @@ spotlight_immuneT_cc2 <- spotlight_deconvolution(
   counts_spatial = Spatial_RST2bei@assays$Spatial@counts,
   clust_vr = "annotation", # Variable in sc_seu containing the cell-type annotation
   cluster_markers = cc2markers_t, # Dataframe with the marker genes
-  cl_n = 100, # number of cells per cell type to use
+  cl_n = 500, # number of cells per cell type to use
   hvg = 6000, # Number of HVG to use
   ntop = NULL, # How many of the marker genes to use (by default all)
   transf = "uv", # Perform unit-variance scaling per cell and spot prior to factorzation and NLS
@@ -266,10 +295,52 @@ saveRDS(object = spotlight_immuneT_cc2, file = here::here("spotlight_immuneT_cc2
 
 Spatial_RST2bei<-spotlight_fuc(Spatial_data=Spatial_RST2bei,spotlight_immune_cc1=spotlight_immuneT_cc2)
 
+df<-Spatial_CST1@meta.data
+p1 <- ggplot(df,aes(x =State4 ,
+                y =Treg))+
+          geom_point(size=0.5)+
+          geom_smooth(se = F,
+                      color = "#8E0505")+
+          labs(x = "Pseudotime-State4",y="Treg",title="StageI/II  Treg")+
+          theme_classic()+
+          stat_cor(data =df,
+           method = "pearson")
+p2 <- ggplot(df,aes(x =State4 ,
+                y =Tex))+
+          geom_point(size=0.5)+
+          geom_smooth(se = F,
+                      color = "#8E0505")+
+          labs(x = "Pseudotime-State4",y="Tex",title="StageI/II  Tex")+
+          theme_classic()+
+          stat_cor(data =df,
+           method = "pearson")
+p3 <- ggplot(df,aes(x =State5 ,
+                y =TAM))+
+          geom_point(size=0.5)+
+          geom_smooth(se = F,
+                      color = "#8E0505")+
+          labs(x = "Pseudotime-State5",y="TAM",title="StageI/II  TAM")+
+          theme_classic()+
+          stat_cor(data =df,
+           method = "pearson")
+p4 <- ggplot(df,aes(x =State5 ,
+                y =Neutrophils))+
+          geom_point(size=0.5)+
+          geom_smooth(se = F,
+                      color = "#8E0505")+
+          labs(x = "Pseudotime-State5",y="Neutrophils",title="StageI/II  Neutrophils")+
+          theme_classic()+
+          stat_cor(data =df,
+           method = "pearson")
+pdf("Immune_emt_score.pdf",width=10,height=10)
+ggarrange(p1,p2,p3,p4, ncol = 2)
+dev.off()
+
+
 pdf("spotlight_Tcell_CC2_FeaturePlot.pdf",width=7,height=7)
 Seurat::SpatialFeaturePlot(
   object = Spatial_RST2bei,
-  features = c("Cytotoxic.CD8.T","NK.cell","CD4.TCM" ,"Terminally.Exhausted.CD8T"),
+  features = c("Teff","Tex","Th","Treg"),
   image.alpha=0.8,
    stroke=0.3,
   alpha = c(0.2, 1))
@@ -282,7 +353,7 @@ spotlight_immuneB_cc2 <- spotlight_deconvolution(
   counts_spatial = Spatial_RST2bei@assays$Spatial@counts,
   clust_vr = "annotation", # Variable in sc_seu containing the cell-type annotation
   cluster_markers = cc2markers_B, # Dataframe with the marker genes
-  cl_n = 100, # number of cells per cell type to use
+  cl_n = 500, # number of cells per cell type to use
   hvg = 6000, # Number of HVG to use
   ntop = NULL, # How many of the marker genes to use (by default all)
   transf = "uv", # Perform unit-variance scaling per cell and spot prior to factorzation and NLS

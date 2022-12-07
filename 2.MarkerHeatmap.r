@@ -1,9 +1,8 @@
 ###################################################
-#Plot heatmap of the PG clusters' mean/median marker expressions
+#step3:Plot heatmap of the PG clusters' mean/median marker expressions
 #################################################
 library(testSctpa)
 library(Seurat)
-
 library(Seurat)
 library(dplyr)
 library(patchwork)
@@ -19,24 +18,40 @@ options(future.globals.maxSize = 10000 * 1024^2)
 source("/share/pub/dengcy/Singlecell/CC_space/src/Functions.r")
 source("/share/pub/dengcy/Singlecell/CC_space/src/library.r")
 setwd("/share/pub/dengcy/Singlecell/CC_space/2.MarkerHeatmap")
-load("/share/pub/dengcy/Singlecell/CC_space/1.scRNA_seq_prepare/CC_scrna.RData")
-load("/share/pub/dengcy/Singlecell/CC_space/1.scRNA_seq_prepare/All_cluster_markers.RData")
+load("/share/pub/dengcy/Singlecell/CC_space/1.scRNA_seq_prepare/CRC_merged_all.RData")
+load("/share/pub/dengcy/Singlecell/CC_space/1.scRNA_seq_prepare/CRC.markers.RData")
 #load("/share/pub/dengcy/Singlecell/CC_space/1.scRNA_seq_prepare/Allmarkers.RData")
-#plan("multiprocess", workers = 10)
-CC_scrna$annotation<-factor(CC_scrna$annotation)
-Idents(CC_scrna)<-CC_scrna$annotation
 
-################################
-#marker hearmap
-markers= FindAllMarkers(CC_scrna,logfc.threshold = 0)
-save(markers,file="annotation_markers.RData")
-load("annotation_markers.RData")
-top_markers = markers %>% group_by(cluster) %>% top_n(n=5,wt=avg_log2FC)  #For Seurat>4.0, set "wt=avg_logFC"
-pdf("DoHeatmap_markers.pdf",width=6)
-DoHeatmap(CC_scrna,features=top_markers$gene,group.colors=color_scanpy_8,size = 3)
+Idents(CRC_merged_all)<-CRC_merged_all$Initial_annotation
+a1<-unlist(lapply(levels(Idents(CRC_merged_all))[c(1:5,8)],function(x){
+    a<-colnames(CRC_merged_all)[Idents(CRC_merged_all)==x]
+    a<-sample(a,3000)
+    return(a)
+  }))
+a2<-unlist(lapply(levels(Idents(CRC_merged_all))[c(6,7,9)],function(x){
+    a<-colnames(CRC_merged_all)[Idents(CRC_merged_all)==x]
+    a<-sample(a,300)
+    return(a)
+  }))
+CRC_subset<-CRC_merged_all[,c(a1,a2)]
+################################################
+#计算不同细胞类型的差异marker 
+markers_annotation = FindAllMarkers(CRC_merged_all,logfc.threshold = 0)
+save(markers_annotation,file="markers_annotation.RData")
+load("markers_annotation.RData")
+
+color_CRC<-c("#7FBCD2","#A5F1E9","#FFEEAF","#7FB77E","#F7F6DC","#B1D7B4","#FFC090",
+  "#F3E0B5","#FFAE6D","#FECD70","#E3C770","#94B49F","#CEE5D0","#ECB390","#F2D7D9",
+  "#D3CEDF","#B2C8DF","#C4D7E0","#F8F9D7","#76BA99","#ADCF9F",
+  "#CED89E","#FFDCAE","#FFE3A9","#FFC3C3","#FF8C8C","#97C4B8","#F1F0C0","#B1BCE6")
+
+markers = markers_annotation %>% group_by(cluster) %>% top_n(n=5,wt=avg_log2FC)  #For Seurat>4.0, set "wt=avg_logFC"
+Idents(CRC_merged_all)<-CRC_merged_all$Initial_annotation
+pdf("step3_DoHeatmap_marker_for_annotation.pdf",width=7,height=8)
+DoHeatmap(CRC_merged_all,features=markers$gene,group.colors=color_CRC,size = 2)
 dev.off()
 
-######################################################
+#############
 ##########Sctpa绘制通路热图
 library(dplyr)
 #counts = CC_scrna
@@ -45,15 +60,17 @@ library(dplyr)
 #                     header = TRUE,
 #                     sep = '\t',
 #                     row.names = 1)
-se_oj = CreateSeuratObject(GetAssayData(object=CC_scrna,assay="RNA",slot="data"),
-  meta.data=CC_scrna@meta.data[,c("annotation","samples")])
+#se_oj = CreateSeuratObject(GetAssayData(object=CRC_merged_all,assay="RNA",slot="data"),
+#  meta.data=CRC_merged_all@meta.data)
+#CRC_subset<-CRC_merged_all[,sample(1:ncol(CRC_merged_all),50000)]
+#rm(CRC_merged_all)
 
-CC_scrna_pas = cal_PAS(seurat_object = se_oj,
+CC_scrna_pas = cal_PAS(seurat_object = CRC_subset,
               tool = 'AUCell',   ## GSVA, ssGSEA, plage, zscore or Vision
               normalize = "log",
               species = 'human', 
               pathway='kegg')
-Idents(CC_scrna_pas)<-CC_scrna_pas$annotation
+Idents(CC_scrna_pas)<-CC_scrna_pas$Initial_annotation
 
 CC_scrna_pas = FindVariableFeatures(CC_scrna_pas, verbose = FALSE)
 CC_scrna_pas = ScaleData(CC_scrna_pas)
@@ -62,19 +79,17 @@ CC_scrna_pas = RunUMAP(CC_scrna_pas,dims = 1:8)
 
 markers_pathway = FindAllMarkers(CC_scrna_pas,logfc.threshold = 0)
 save(markers_pathway,file="annatation_markers_pathway.RData")
+color_CRC<-c("#7FBCD2","#A5F1E9","#FFEEAF","#7FB77E","#F7F6DC","#B1D7B4","#FFC090",
+  "#F3E0B5","#FFAE6D","#FECD70","#E3C770","#94B49F","#CEE5D0","#ECB390","#F2D7D9",
+  "#D3CEDF","#B2C8DF","#C4D7E0","#F8F9D7","#76BA99","#ADCF9F",
+  "#CED89E","#FFDCAE","#FFE3A9","#FFC3C3","#FF8C8C","#97C4B8","#F1F0C0","#B1BCE6")
+pathways = markers_pathway %>% group_by(Initial_annotation) %>% top_n(n=5,wt=avg_log2FC)  #For Seurat>4.0, set "wt=avg_logFC"
 
-pathways = markers_pathway %>% group_by(cluster) %>% top_n(n=5,wt=avg_log2FC)  #For Seurat>4.0, set "wt=avg_logFC"
-pdf("DoHeatmap_pathway.pdf",width=7,height=8)
-DoHeatmap(CC_scrna_pas,features=pathways$gene,group.colors=color_scanpy_8,size = 2)
+pdf("step3_DoHeatmap_pathway_for_annotation.pdf",width=7,height=8)
+DoHeatmap(CC_scrna_pas,features=pathways$gene,group.colors=color_CRC,size = 2)
 dev.off()
 
-################################################
-#
 
-celltype_marker=c("PCGF1","LGR5","POU5F1","PROM1")
-pdf(file="ClusterMarker_vlnplot.pdf")
-VlnPlot(CC_scrna,features = celltype_marker,pt.size = 0,ncol = 2,group.by = "annotation")#这里定义10为干细胞群
-dev.off()
 ############
 
 top_markers1 = markers %>% group_by(cluster) %>% top_n(n=1,wt=avg_log2FC)  #For Seurat>4.0, set "wt=avg_logFC"
@@ -92,7 +107,7 @@ p<-FeaturePlot(CC_scrna, features=top_markers1$gene[i],reduction ="tsne", pt.siz
 #dev.off()
 return(p)
   })
-pdf("marker_top_markers_UMAP.pdf", width=15, height=15)
+pdf("step3_marker_top_markers_UMAP.pdf", width=15, height=15)
 ggarrange(p_list[[1]],p_list[[2]],p_list[[3]],p_list[[4]],p_list[[5]],p_list[[6]],p_list[[7]],p_list[[8]],ncol =3)
 dev.off()
 #########################
